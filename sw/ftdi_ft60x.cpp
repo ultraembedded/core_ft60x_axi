@@ -15,6 +15,11 @@ bool ftdi_ft60x::configure(int device_idx, uint8_t clock)
 {
     FT_HANDLE handle = NULL;
 
+#if defined(_WIN32) || defined(_WIN64)
+    DWORD numDevs = 0;
+    FT_CreateDeviceInfoList(&numDevs);
+#endif
+
     // Open connection to device
     // TODO: Device index not working...
     assert(device_idx == 0);
@@ -141,7 +146,11 @@ int ftdi_ft60x::read(uint8_t *data, int length, int timeout_ms)
     DWORD count;
     FT_STATUS err;
 
+#if !defined(_WIN32) && !defined(_WIN64) // Linux / MAC
     if ((err = FT_ReadPipeEx(m_handle, 0, data, length, &count, timeout_ms)) != FT_OK)
+#else // Windows
+    if ((err = FT_ReadPipeEx(m_handle, 0, data, length, &count, NULL)) != FT_OK)
+#endif
     {
         if (err == FT_TIMEOUT)
             return 0;
@@ -159,15 +168,18 @@ int ftdi_ft60x::write(uint8_t *data, int length, int timeout_ms)
 {
     DWORD count;
 
-    //printf("Write: %d\n", length);
+#if !defined(_WIN32) && !defined(_WIN64) // Linux / MAC
     FT_STATUS status = FT_WritePipeEx(m_handle, 0, data, length, &count, timeout_ms);
+#else // Windows
+    FT_STATUS status = FT_WritePipeEx(m_handle, 0, data, length, &count, NULL);
+#endif
     if (status  != FT_OK)
     {
         printf("FT_WritePipeEx: %d\n", status);
         return -1;
     }
 
-#if 1
+#if !defined(_WIN32) && !defined(_WIN64) // Linux / MAC
     DWORD queued_data = 0;
     int loops = 0;
     do
